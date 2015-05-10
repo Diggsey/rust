@@ -10,11 +10,11 @@
 
 #![feature(scoped_tls)]
 
-trait TestTrait {
+pub trait TestTrait {
     fn test(&self) -> bool;
 }
 
-struct TestStruct;
+pub struct TestStruct;
 
 impl TestTrait for TestStruct {
     fn test(&self) -> bool {
@@ -22,8 +22,8 @@ impl TestTrait for TestStruct {
     }
 }
 
-scoped_thread_local!(static TEST_SLICE: [u32]);
-scoped_thread_local!(static TEST_TRAIT: TestTrait);
+scoped_thread_local!(static TEST_SLICE: for<'scope> &'scope [u32]);
+scoped_thread_local!(static TEST_TRAIT: for<'scope> &'scope TestTrait);
 
 pub fn main() {
     TEST_SLICE.set(&[0; 10], || {
@@ -32,8 +32,8 @@ pub fn main() {
         });
     });
     TEST_TRAIT.set(&TestStruct, || {
-        TEST_TRAIT.with(|traitObj| {
-            assert!(traitObj.test());
+        TEST_TRAIT.with(|trait_obj| {
+            assert!(trait_obj.test());
         });
     });
 }

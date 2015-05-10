@@ -60,7 +60,18 @@ pub mod __impl {
 #[unstable(feature = "scoped_tls",
            reason = "scoped TLS has yet to have wide enough use to fully consider \
                      stabilizing its interface")]
-pub struct ScopedKey<T: ?Sized> { #[doc(hidden)] pub inner: __impl::KeyInner<*const T> }
+pub struct ScopedKey<T: for<'a> WithLifetime<'a>> { #[doc(hidden)] pub inner: __impl::KeyInner<<T as WithLifetime<'static>>::Result> }
+
+/// This trait is implemented by the `scoped_thread_local!` macro, to allow
+/// `ScopedKey` to substitute in different lifetime parameters. This provides
+/// a limited form of higher-kinded types.
+#[unstable(feature = "scoped_tls",
+           reason = "scoped TLS has yet to have wide enough use to fully consider \
+                     stabilizing its interface")]
+pub unsafe trait WithLifetime<'scope> {
+    /// The result of substituting a concrete lifetime for 'scope
+    type Result: Copy;
+}
 
 /// Declare a new scoped thread local storage key.
 ///
@@ -69,11 +80,11 @@ pub struct ScopedKey<T: ?Sized> { #[doc(hidden)] pub inner: __impl::KeyInner<*co
 #[macro_export]
 #[allow_internal_unstable]
 macro_rules! scoped_thread_local {
-    (static $name:ident: $t:ty) => (
-        __scoped_thread_local_inner!(static $name: $t);
+    (static $name:ident: for<'scope> $t:ty) => (
+        __scoped_thread_local_inner!(static $name: for<'scope> $t);
     );
-    (pub static $name:ident: $t:ty) => (
-        __scoped_thread_local_inner!(pub static $name: $t);
+    (pub static $name:ident: for<'scope> $t:ty) => (
+        __scoped_thread_local_inner!(pub static $name: for<'scope> $t);
     );
 }
 
@@ -81,27 +92,43 @@ macro_rules! scoped_thread_local {
 #[doc(hidden)]
 #[allow_internal_unstable]
 macro_rules! __scoped_thread_local_inner {
-    (static $name:ident: $t:ty) => (
+    (static $name:ident: for<'scope> $t:ty) => (
+        #[allow(non_snake_case)]
+        mod $name {
+            pub struct Ty;
+        }
+        unsafe impl<'scope> ::std::thread::WithLifetime<'scope> for $name::Ty {
+            type Result = $t;
+        }
+
         #[cfg_attr(not(any(windows,
                            target_os = "android",
                            target_os = "ios",
                            target_os = "openbsd",
                            target_arch = "aarch64")),
                    thread_local)]
-        static $name: ::std::thread::ScopedKey<$t> =
-            __scoped_thread_local_inner!($t);
+        static $name: ::std::thread::ScopedKey<$name::Ty> =
+            __scoped_thread_local_inner!($name);
     );
-    (pub static $name:ident: $t:ty) => (
+    (pub static $name:ident: for<'scope> $t:ty) => (
+        #[allow(non_snake_case)]
+        mod $name {
+            pub struct Ty;
+        }
+        unsafe impl<'scope> ::std::thread::WithLifetime<'scope> for $name::Ty {
+            type Result = $t;
+        }
+
         #[cfg_attr(not(any(windows,
                            target_os = "android",
                            target_os = "ios",
                            target_os = "openbsd",
                            target_arch = "aarch64")),
                    thread_local)]
-        pub static $name: ::std::thread::ScopedKey<$t> =
-            __scoped_thread_local_inner!($t);
+        pub static $name: ::std::thread::ScopedKey<$name::Ty> =
+            __scoped_thread_local_inner!($name);
     );
-    ($t:ty) => ({
+    ($name:ident) => ({
         use std::thread::ScopedKey as __Key;
 
         #[cfg(not(any(windows,
@@ -109,7 +136,7 @@ macro_rules! __scoped_thread_local_inner {
                       target_os = "ios",
                       target_os = "openbsd",
                       target_arch = "aarch64")))]
-        const _INIT: __Key<$t> = __Key {
+        const _INIT: __Key<$name::Ty> = __Key {
             inner: ::std::thread::__scoped::KeyInner {
                 inner: ::std::cell::UnsafeCell { value: 0 as *mut _ },
             }
@@ -120,10 +147,10 @@ macro_rules! __scoped_thread_local_inner {
                   target_os = "ios",
                   target_os = "openbsd",
                   target_arch = "aarch64"))]
-        const _INIT: __Key<$t> = __Key {
+        const _INIT: __Key<$name::Ty> = __Key {
             inner: ::std::thread::__scoped::KeyInner {
                 inner: ::std::thread::__scoped::OS_INIT,
-                marker: ::std::marker::PhantomData::<::std::cell::UnsafeCell<*const $t>>,
+                marker: ::std::marker::PhantomData::<::std::cell::UnsafeCell<<$name::Ty as ::std::thread::WithLifetime<'static>>::Result>>,
             }
         };
 
@@ -134,7 +161,7 @@ macro_rules! __scoped_thread_local_inner {
 #[unstable(feature = "scoped_tls",
            reason = "scoped TLS has yet to have wide enough use to fully consider \
                      stabilizing its interface")]
-impl<T: ?Sized> ScopedKey<T> {
+impl<T: for<'a> WithLifetime<'a>> ScopedKey<T> {
     /// Inserts a value into this scoped thread local storage slot for a
     /// duration of a closure.
     ///
@@ -164,23 +191,22 @@ impl<T: ?Sized> ScopedKey<T> {
     ///     assert_eq!(val, 100);
     /// });
     /// ```
-    pub fn set<R, F>(&'static self, t: &T, cb: F) -> R where
+    pub fn set<'a, R, F>(&'static self, t: <T as WithLifetime<'a>>::Result, cb: F) -> R where
         F: FnOnce() -> R,
     {
-        struct Reset<'a, T: 'a + ?Sized> {
-            key: &'a __impl::KeyInner<*const T>,
-            val: *mut *const T,
+        struct Reset<'a, T: 'a> {
+            key: &'a __impl::KeyInner<T>,
+            val: *mut T,
         }
-        impl<'a, T: ?Sized> Drop for Reset<'a, T> {
+        impl<'a, T> Drop for Reset<'a, T> {
             fn drop(&mut self) {
                 unsafe { self.key.set(self.val) }
             }
         }
 
-        let mut pt = t as *const _;
         let prev = unsafe {
             let prev = self.inner.get();
-            self.inner.set(&mut pt);
+            self.inner.set((&t as *const <T as WithLifetime<'a>>::Result) as *mut _);
             prev
         };
 
@@ -208,13 +234,13 @@ impl<T: ?Sized> ScopedKey<T> {
     /// });
     /// ```
     pub fn with<R, F>(&'static self, cb: F) -> R where
-        F: FnOnce(&T) -> R
+        F: for<'a> FnOnce(<T as WithLifetime<'a>>::Result) -> R
     {
         unsafe {
             let ptr = self.inner.get();
             assert!(!ptr.is_null(), "cannot access a scoped thread local \
                                      variable without calling `set` first");
-            cb(&**ptr)
+            cb(*ptr)
         }
     }
 
@@ -279,11 +305,11 @@ mod tests {
     use cell::Cell;
     use prelude::v1::*;
 
-    scoped_thread_local!(static FOO: u32);
+    scoped_thread_local!(static FOO: for<'scope> &'scope u32);
 
     #[test]
     fn smoke() {
-        scoped_thread_local!(static BAR: u32);
+        scoped_thread_local!(static BAR: for<'scope> &'scope u32);
 
         assert!(!BAR.is_set());
         BAR.set(&1, || {
@@ -297,7 +323,7 @@ mod tests {
 
     #[test]
     fn cell_allowed() {
-        scoped_thread_local!(static BAR: Cell<u32>);
+        scoped_thread_local!(static BAR: for<'scope> &'scope Cell<u32>);
 
         BAR.set(&Cell::new(1), || {
             BAR.with(|slot| {

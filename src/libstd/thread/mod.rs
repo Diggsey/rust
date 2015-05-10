@@ -214,7 +214,7 @@ pub use self::local::{LocalKey, LocalKeyState};
 #[unstable(feature = "scoped_tls",
             reason = "scoped TLS has yet to have wide enough use to fully \
                       consider stabilizing its interface")]
-pub use self::scoped_tls::ScopedKey;
+pub use self::scoped_tls::{ScopedKey, WithLifetime};
 
 #[doc(hidden)] pub use self::local::__impl as __local;
 #[doc(hidden)] pub use self::scoped_tls::__impl as __scoped;
