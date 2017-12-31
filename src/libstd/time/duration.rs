@@ -53,6 +53,10 @@ pub struct Duration {
 }
 
 impl Duration {
+    /// Constant zero duration for use within libstd
+    #[allow(dead_code)]
+    pub(crate) const ZERO: Duration = Duration { secs: 0, nanos: 0};
+
     /// Creates a new `Duration` from the specified number of whole seconds and
     /// additional nanoseconds.
     ///

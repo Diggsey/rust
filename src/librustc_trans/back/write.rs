@@ -337,6 +337,7 @@ pub struct CodegenContext {
     binaryen_linker: bool,
     debuginfo: config::DebugInfoLevel,
     wasm_import_memory: bool,
+    wasm_auto_run: bool,
 
     // Number of cgus excluding the allocator/metadata modules
     pub total_cgus: usize,
@@ -807,7 +808,7 @@ fn binaryen_assemble(cgcx: &CodegenContext,
     if cgcx.debuginfo != config::NoDebugInfo {
         options.debuginfo(true);
     }
-    if cgcx.crate_types.contains(&config::CrateTypeExecutable) {
+    if cgcx.wasm_auto_run && cgcx.crate_types.contains(&config::CrateTypeExecutable) {
         options.start("main");
     }
     options.stack(1024 * 1024);
@@ -1391,6 +1392,9 @@ fn start_executing_work(tcx: TyCtxt,
     let wasm_import_memory =
         attr::contains_name(&tcx.hir.krate().attrs, "wasm_import_memory");
 
+    let wasm_auto_run =
+        attr::contains_name(&tcx.hir.krate().attrs, "wasm_auto_run");
+
     let cgcx = CodegenContext {
         crate_types: sess.crate_types.borrow().clone(),
         each_linked_rlib_for_lto,
@@ -1428,7 +1432,8 @@ fn start_executing_work(tcx: TyCtxt,
         target_pointer_width: tcx.sess.target.target.target_pointer_width.clone(),
         binaryen_linker: tcx.sess.linker_flavor() == LinkerFlavor::Binaryen,
         debuginfo: tcx.sess.opts.debuginfo,
-        wasm_import_memory: wasm_import_memory,
+        wasm_import_memory,
+        wasm_auto_run,
     };
 
     // This is the "main loop" of parallel work happening for parallel codegen.
