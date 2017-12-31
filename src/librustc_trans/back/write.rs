@@ -1392,8 +1392,8 @@ fn start_executing_work(tcx: TyCtxt,
     let wasm_import_memory =
         attr::contains_name(&tcx.hir.krate().attrs, "wasm_import_memory");
 
-    // Disable wasm auto-run when building tests
-    let wasm_auto_run = !sess.opts.test;
+    let wasm_auto_run =
+        attr::contains_name(&tcx.hir.krate().attrs, "wasm_auto_run");
 
     let cgcx = CodegenContext {
         crate_types: sess.crate_types.borrow().clone(),

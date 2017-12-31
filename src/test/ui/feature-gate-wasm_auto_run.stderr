@@ -1,0 +1,10 @@
+error: wasm_auto_run attribute is currently unstable
+  --> $DIR/feature-gate-wasm_auto_run.rs:11:1
+   |
+11 | #![wasm_auto_run] //~ ERROR: currently unstable
+   | ^^^^^^^^^^^^^^^^^
+   |
+   = help: add #![feature(wasm_auto_run)] to the crate attributes to enable
+
+error: aborting due to previous error
+

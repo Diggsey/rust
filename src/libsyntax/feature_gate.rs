@@ -424,6 +424,9 @@ declare_features! (
     // #![wasm_import_memory] attribute
     (active, wasm_import_memory, "1.22.0", None),
 
+    // #![wasm_auto_run] attribute
+    (active, wasm_auto_run, "1.24.0", None),
+
     // `crate` in paths
     (active, crate_in_paths, "1.23.0", Some(45477)),
 
@@ -967,6 +970,11 @@ pub const BUILTIN_ATTRIBUTES: &'static [(&'static str, AttributeType, AttributeG
                                  "wasm_import_memory",
                                  "wasm_import_memory attribute is currently unstable",
                                  cfg_fn!(wasm_import_memory))),
+
+    ("wasm_auto_run", Whitelisted, Gated(Stability::Unstable,
+                                 "wasm_auto_run",
+                                 "wasm_auto_run attribute is currently unstable",
+                                 cfg_fn!(wasm_auto_run))),
 
     // Crate level attributes
     ("crate_name", CrateLevel, Ungated),
