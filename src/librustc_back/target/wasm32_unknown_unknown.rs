@@ -67,7 +67,7 @@ pub fn target() -> Result<Target, String> {
         // Unwinding doesn't work right now, so the whole target unconditionally
         // defaults to panic=abort. Note that this is guaranteed to change in
         // the future once unwinding is implemented. Don't rely on this.
-        panic_strategy: PanicStrategy::Abort,
+        panic_strategy: PanicStrategy::Unwind,
 
         // There's no linker yet so we're forced to use LLVM as a linker. This
         // means that we must always enable LTO for final artifacts.
