@@ -305,6 +305,11 @@
 # result (broken, compiling, testing) into this JSON file.
 #save-toolstates = "/path/to/toolstates.json"
 
+# Flag indicating whether `libstd` calls an imported function to hande basic IO
+# when targetting WebAssembly. Enable this to debug tests for the `wasm32-unknown-unknown`
+# target, as without this option the test output will not be captured.
+#wasm-syscall = false
+
 # =============================================================================
 # Options for specific targets
 #
